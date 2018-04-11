@@ -5,59 +5,51 @@
 #include <memory>
 #include <tuple>
 #include <type_traits>
-#include <functional>
+#include <list>
 
-
-template<typename ... T>
+template<class... T>
 class Pack {
 public:
-	std::istream stream;
 	std::tuple<T...> tuple;
-	Pack(std::tuple<T ...> && tup) : tup(tuple) {};
+	Pack(std::tuple<T...> tup) : tuple(tup) {}
 };
 
-template<typename ... T>
-class Pack<T...>  {
-public:
-	std::istream stream;
 
-};
 
-template<typename T>
-void process_rvalue(T& elem) {
-	if (std::is_rvalue_reference(elem)) {
-
-	}
-}
-template<typename T>
-void process_lvalue(T& elem) {
-
-	if (std::is_lvalue_reference(elem)) {
-
-	}
-}
 
 template<std::size_t I, typename ... T>
-void parse(std::tuple<T...> & p) {
+std::stringstream& process_args(std::istream& stream, std::tuple<T...> & param) {
+
+	std::stringstream ss;
+	auto current = std::get<I>(param);
+	if (std::is_lvalue_reference(current)) {
+		ss = process_args<I + 1>(stream, param);
+		current = std::tie(ss);
+
+	}
+	else if (std::add_rvalue_reference(param) && std::_Is_character(param)) {
+		char c;
+		while (stream.get(c) != param) { ss << c; } 
+	}
+
+	return ss;
 
 }
 
 
-template<typename ... T>
-Pack<T ...> split(T && ... params) {
-	std::tuple<T ...>tuple(std::forward<T>(params) ...);
-	parse<sizeof(tuple),T...>(tuple);
-	Pack<T...> pack(tuple);
 
-	return pack;
+template<typename ... T>
+std::istream& operator>>(std::istream& stream, std::tuple<T ...>&& param) {
+
+	process_args<0>(stream,param);
+
+	return stream;
 }
 
-
-
 template<typename ... T>
-std::istream& operator>>(std::istream& is,Pack<T ...> && pack) {
-	is >> pack.stream;
-	return is;
+std::tuple<T ...> split(T ... param) {
+	auto data = std::make_tuple(std::forward<T>(param) ...);
+	return std::tuple<T ...>(std::move(data));
 }
 
 int main() {
@@ -65,7 +57,7 @@ int main() {
 	std::string x;
 	int y;
 	double z;
-	iss >> split(x, ':', y, '/', z);
+	iss >> split(x, ':', '=', y, '/', z);
 	std::cout << "x = " << x << ", y = " << y << ", z = " << z << std::endl;
 	return 0;
 }
